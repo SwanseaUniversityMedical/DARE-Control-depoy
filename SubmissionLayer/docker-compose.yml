@@ -1,0 +1,217 @@
+version: '3.7'
+
+services:
+
+######################################################
+# SUBMISSION LAYER
+######################################################
+
+  control:
+    image: harbor.ukserp.ac.uk:443/dare-trefx/control-main-ui:${verUI}
+    container_name: submissionUI
+    restart: always
+    networks:
+      - sub-net
+    ports:
+      - 7220:80
+    depends_on:
+      - control-api
+    environment:
+      - CONNECTIONSTRINGS__DEFAULTCONNECTION="Server=postgres_submission;Port=32769;Database=DARE-Control;UserId=${PGLOGIN};Password=${PGPASSWORD};"
+      - KeyCloakSettings__TokenExpiredAddress=http://localhost:7220/Account/LoginAfterTokenExpired
+      - Serilog__SeqServerUrl=http://seq:5341
+
+  control-api:
+    image: harbor.ukserp.ac.uk:443/dare-trefx/control-main-api:${verAPI}
+    container_name: submissionAPI
+    restart: always
+    networks:
+      - sub-net
+    ports:
+      - 8071:80
+    depends_on:
+      postgresql_submission:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=postgres;Port=5432;Database=DARE-Control;Include Error Detail=true;User Id=${PGLOGIN};Password=${PGPASSWORD};
+      - RabbitMQ__HostAddress=rabbitmq     
+      - Serilog__SeqServerUrl=http://seq:5341
+
+
+######################################################
+# POSTGRES
+######################################################
+  postgresql_submission:
+    image: docker.io/bitnami/postgresql:latest
+    container_name: postgres
+    restart: always
+    environment:
+#      - ALLOW_EMPTY_PASSWORD=yes
+      - POSTGRESQL_USERNAME=${PGLOGIN}
+      - POSTGRESQL_DATABASE=DARE-Control
+      - POSTGRESQL_PASSWORD=${PGPASSWORD}
+    networks:
+      - sub-net
+    ports:
+      - "5432:5432"
+    volumes:
+#      - 'postgresql_data:/bitnami/postgresql'
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -q -U ${PGLOGIN} -d ${PGLOGIN}" ]
+  
+  adminer:
+    image: adminer
+    restart: always
+    networks:
+      - sub-net
+    ports:
+      - 8087:8080
+    environment:
+      - ADMINER_DEFAULT_DB_DRIVER=psql
+      - ADMINER_DEFAULT_DB_HOST=postgres
+      - ADMINER_DEFAULT_DB_NAME=postgres
+    depends_on:
+      postgresql_submission:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "adminer", "9000" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10      
+
+######################################################
+# Rabbit MQ
+######################################################
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: 'rabbitmq'
+    hostname: rabbitmq
+    ports:
+        - 5672:5672
+        - 15672:15672
+    volumes:
+        - rabbitdata:/var/lib/rabbitmq/
+        - rabbitlogs:/var/log/rabbitmq
+    networks:
+      - sub-net
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+
+######################################################
+# MINIO
+######################################################      
+  minio:
+    image: quay.io/minio/minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_IDENTITY_OPENID_CONFIG_URL=${KeyCloakURL}
+      - MINIO_IDENTITY_OPENID_CLIENT_ID=${KeyCloakMinioClientId}
+      - MINIO_IDENTITY_OPENID_CLIENT_SECRET=${KeyCloakMinioClientSecret}
+      - MINIO_IDENTITY_OPENID_DISPLAY_NAME=KEYLOAK
+      - MINIO_IDENTITY_OPENID_SCOPES=openid
+      - MINIO_IDENTITY_OPENID_REDIRECT_URI_DYNAMIC=on
+    networks:
+      - sub-net
+    volumes:
+      - minio_data:/data
+    ports:
+      - 9000:9000
+      - 9001:9001
+
+######################################################
+# SEQ / Serilog
+######################################################      
+  seq:
+    image: datalust/seq:latest
+    container_name: seq
+    restart: always
+    networks:
+      - sub-net
+    ports:
+      - 5341:80
+    volumes:
+      - seq_data:/data
+    environment:
+      - ACCEPT_EULA=Y
+
+######################################################
+#  KEYCLOAK
+######################################################   
+  postgresql-kc:
+    container_name: postgresql-kc
+    image: docker.io/bitnami/postgresql:11
+    environment:
+      # ALLOW_EMPTY_PASSWORD is recommended only for development.
+      - ALLOW_EMPTY_PASSWORD=no
+      - POSTGRESQL_USERNAME=bn_keycloak
+      - POSTGRESQL_PASSWORD=${PGPASSWORD_KEYCLOAK}
+      - POSTGRESQL_DATABASE=bitnami_keycloak
+    networks:
+      - sub-net
+    volumes:
+      - 'postgresql_kc:/bitnami/postgresql'
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -q -U bn_keycloak -d ${PGPASSWORD_KEYCLOAK}" ]
+
+  keycloak:
+    image: docker.io/bitnami/keycloak:21
+    environment:
+      - KEYCLOAK_LOG_LEVEL=DEBUG
+#      - KEYCLOAK_HOSTNAME=auth2.ukserp.ac.uk
+      - KEYCLOAK_CREATE_ADMIN_USER=true
+      - KEYCLOAK_ADMIN_USER=${KeyCloakAdminUser}
+      - KEYCLOAK_ADMIN_PASSWORD=${KeyCloakAdminPassword}
+      - KEYCLOAK_MANAGEMENT_USER=hirumanager
+      - KEYCLOAK_MANAGEMENT_PASSWORD=sgs56435FGSd9
+      - KEYCLOAK_ENABLE_STATISTICS=true
+      - KEYCLOAK_DATABASE_HOST=postgresql-kc
+      - KEYCLOAK_DATABASE_NAME=bitnami_keycloak
+      - KEYCLOAK_DATABASE_USER=bn_keycloak
+      - KEYCLOAK_DATABASE_PASSWORD=${PGPASSWORD_KEYCLOAK}
+      - REDIRECT_SOCKET="proxy-https"
+      - PROXY_ADDRESS_FORWARDING="true"
+      - KEYCLOAK_PROXY=edge
+    networks:
+      - sub-net
+    depends_on:
+        postgresql-kc:
+          condition: service_healthy    
+    ports:
+      - "9090:8080"
+
+######################################################
+# VOLUME
+######################################################
+volumes:
+    postgresql_data:
+      driver: local
+    postgresql_kc:
+      driver: local      
+    minio_data:
+      driver: local
+    seq_data:
+      driver: local
+    rabbitdata:
+      driver: local
+    rabbitlogs:
+      driver: local
+
+######################################################
+# networks
+######################################################      
+networks:
+  sub-net:
+    driver: bridge
+  kc-net:
+    driver: bridge
