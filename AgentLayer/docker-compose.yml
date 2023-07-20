@@ -16,8 +16,9 @@ services:
     depends_on:
       - tre-api
     environment:
-      - CONNECTIONSTRINGS__DEFAULTCONNECTION="Server=postgres_submission;Port=32769;Database=DARE-Control;UserId=${PGLOGIN};Password=${PGPASSWORD};"
+      - DareAPISettings__Address=http://treAPI:80
       - KeyCloakSettings__TokenExpiredAddress=http://localhost:5001/Account/LoginAfterTokenExpired
+      - Serilog__SeqServerUrl=http://seq-tre:5341
 
   tre-api:
     image: harbor.ukserp.ac.uk:443/dare-trefx/control-tre-api:${verTAPI}
@@ -31,9 +32,9 @@ services:
       postgresql_tre:
         condition: service_healthy
     environment:
-      - ConnectionStrings__DefaultConnection=Server=postgres;Port=5432;Database=DARE-Control;Include Error Detail=true;User Id=${PGLOGIN};Password=${PGPASSWORD};
+      - ConnectionStrings__DefaultConnection=Server=postgres-tre;Port=5432;Database=DARE-Control;Include Error Detail=true;User Id=${PGLOGIN};Password=${PGPASSWORD};
       - RabbitMQ__HostAddress=rabbitmq  
-
+      - Serilog__SeqServerUrl=http://seq-tre:5341
 
 ######################################################
 # POSTGRES
