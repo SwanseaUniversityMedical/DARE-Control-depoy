@@ -16,7 +16,7 @@ services:
     depends_on:
       - tre-api
     environment:
-      - DareAPISettings__Address=http://treAPI:80
+      - DareAPISettings__Address=http://treAPI:8072
       - KeyCloakSettings__TokenExpiredAddress=http://localhost:5001/Account/LoginAfterTokenExpired
       - Serilog__SeqServerUrl=http://seq-tre:5341
 
