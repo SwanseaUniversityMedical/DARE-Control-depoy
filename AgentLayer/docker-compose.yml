@@ -12,7 +12,7 @@ services:
     networks:
       - tre-net
     ports:
-      - 5002:80
+      - 8989:80
     depends_on:
       - tre-api
     environment:
