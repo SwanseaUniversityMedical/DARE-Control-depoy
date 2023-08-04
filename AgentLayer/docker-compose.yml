@@ -16,7 +16,8 @@ services:
     depends_on:
       - tre-api
     environment:
-      - DareAPISettings__Address=http://treAPI:8072
+      - TreAPISettings__Address=http://treAPI
+      - DareAPISettings__Address=http://treAPI
       - KeyCloakSettings__TokenExpiredAddress=http://localhost:5001/Account/LoginAfterTokenExpired
       - Serilog__SeqServerUrl=http://seq-tre:5341
 
@@ -35,6 +36,7 @@ services:
       - ConnectionStrings__DefaultConnection=Server=postgres-tre;Port=5432;Database=DARE-Control;Include Error Detail=true;User Id=${PGLOGIN};Password=${PGPASSWORD};
       - RabbitMQ__HostAddress=rabbitmq  
       - Serilog__SeqServerUrl=http://seq-tre:5341
+      - DARE-API__Address=https://localhost:5044
 
 ######################################################
 # POSTGRES
