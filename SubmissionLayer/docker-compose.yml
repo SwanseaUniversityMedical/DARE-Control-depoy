@@ -22,7 +22,7 @@ services:
       - Serilog__SeqServerUrl=http://seq:5341
       - KeyCloakSettings__Proxy=false
       - DareAPISettings__Address=http://submissionAPI:80
-      - FormIOSettings__UseInternal:false
+      - FormIOSettings__UseInternal:true
 
   control-api:
     image: harbor.ukserp.ac.uk:443/dare-trefx/control-main-api:${verAPI}
