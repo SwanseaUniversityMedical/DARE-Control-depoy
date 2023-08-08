@@ -22,7 +22,7 @@ services:
       - Serilog__SeqServerUrl=http://seq:5341
       - KeyCloakSettings__Proxy=false
       - DareAPISettings__Address=http://submissionAPI:80
-      - FormIOSettings__UseInternal:true
+      - FormIOSettings__UseInternal:false
 
   control-api:
     image: harbor.ukserp.ac.uk:443/dare-trefx/control-main-api:${verAPI}
@@ -32,7 +32,7 @@ services:
       - sub-net
     ports:
       - 5034:80
-      - 5044:5034
+      #- 5044:5034
     depends_on:
       postgresql_submission:
         condition: service_healthy

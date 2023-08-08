@@ -1,2 +1,2 @@
 # DARE-Control-depoy
-Deployment of workign version of DARE TREFX Submission layer and agent
+Deployment of working version of DARE TREFX Submission layer and agent
