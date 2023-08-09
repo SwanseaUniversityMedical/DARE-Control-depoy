@@ -44,6 +44,7 @@ services:
       - RabbitMQ__HostAddress=rabbitmq     
       - Serilog__SeqServerUrl=http://seq:5341
       - KeyCloakSettings__Proxy=false
+      - MinioSettings__Url=Minio:9000
 
 
 ######################################################
@@ -116,6 +117,7 @@ services:
 ######################################################      
   minio:
     image: quay.io/minio/minio
+    container_name: minio
     restart: always
     command: server /data --console-address ":9001"
     environment:
